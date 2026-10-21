@@ -40,8 +40,12 @@ class BilibiliTask:
             res = requests.get(url, headers=self.headers)
             res.raise_for_status()
             data = res.json()
+            logger.debug(f"动态视频API响应: code={data.get('code')}, message={data.get('message')}")
             if data['code'] == 0:
-                return [video['bvid'] for video in data.get('data', {}).get('archives', [])]
+                videos = [video['bvid'] for video in data.get('data', {}).get('archives', [])]
+                logger.info(f"获取到 {len(videos)} 个动态视频")
+                return videos
+            logger.warning(f"动态视频API返回错误: {data.get('message')}")
             return []
         except Exception as e:
             logger.error(f"请求动态视频API异常: {e}")
@@ -53,8 +57,12 @@ class BilibiliTask:
             res = requests.get(url, headers=self.headers)
             res.raise_for_status()
             data = res.json()
+            logger.debug(f"排行榜视频API响应: code={data.get('code')}, message={data.get('message')}")
             if data['code'] == 0:
-                return [video['bvid'] for video in data.get('data', {}).get('list', [])]
+                videos = [video['bvid'] for video in data.get('data', {}).get('list', [])]
+                logger.info(f"获取到 {len(videos)} 个排行榜视频")
+                return videos
+            logger.warning(f"排行榜视频API返回错误: {data.get('message')}")
             return []
         except Exception as e:
             logger.error(f"请求排行榜视频API异常: {e}")

@@ -46,7 +46,12 @@ def execute_coin_task(bili, user_info, config):
         logger.info("获取动态视频作为投币目标。")
 
     if not video_list:
-        return False, "无法获取视频列表"
+        logger.warning("动态视频获取失败，尝试使用排行榜视频作为备选")
+        video_list = bili.get_ranking_videos()
+
+    if not video_list:
+        logger.error("所有视频源均获取失败，使用默认视频")
+        video_list = ['BV1GJ411x7h7']
 
     added_coins = 0
     for bvid in video_list:
