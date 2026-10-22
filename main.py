@@ -38,16 +38,24 @@ def execute_coin_task(bili, user_info, config):
     
     coins_to_add = min(coins_to_add, int(coin_balance), 5)
 
-    if config.get('COIN_VIDEO_SOURCE') == 'ranking':
-        video_list = bili.get_ranking_videos()
-        logger.info("获取排行榜视频作为投币目标。")
-    else:
-        video_list = bili.get_dynamic_videos()
-        logger.info("获取动态视频作为投币目标。")
+    sources = {
+        'popular': (bili.get_popular_videos, "热门"),
+        'dynamic': (bili.get_dynamic_videos, "动态"),
+        'ranking': (bili.get_ranking_videos, "排行榜"),
+    }
+    # 按配置选择首选视频源，其余按 热门→动态→排行榜 的顺序作为备选
+    preferred = config.get('COIN_VIDEO_SOURCE')
+    order = [preferred] if preferred in sources else []
+    order += [key for key in ('popular', 'dynamic', 'ranking') if key not in order]
 
-    if not video_list:
-        logger.warning("动态视频获取失败，尝试使用排行榜视频作为备选")
-        video_list = bili.get_ranking_videos()
+    video_list = []
+    for key in order:
+        getter, name = sources[key]
+        video_list = getter()
+        if video_list:
+            logger.info(f"获取{name}视频作为投币目标。")
+            break
+        logger.warning(f"{name}视频获取失败，尝试其他视频源。")
 
     if not video_list:
         logger.error("所有视频源均获取失败，使用默认视频")
@@ -57,14 +65,19 @@ def execute_coin_task(bili, user_info, config):
     for bvid in video_list:
         if added_coins >= coins_to_add:
             break
-        
+
+        # 跳过已投过币的视频（如昨天投过的），避免重复投币
+        if bili.check_video_coin_status(bvid):
+            logger.info(f"视频 {bvid} 已投过币，跳过。")
+            continue
+
         success, msg = bili.add_coin(bvid, 1, int(config.get('COIN_SELECT_LIKE')))
         if success:
             added_coins += 1
             logger.info(f"为视频 {bvid} 投币成功。")
         elif "已达到" in msg:
             logger.warning("今日投币上限已满，终止投币。")
-            added_coins = config.get('COIN_ADD_NUM')
+            added_coins = coins_to_add
             break
         else:
             logger.warning(f"为视频 {bvid} 投币失败: {msg}")
@@ -112,7 +125,7 @@ def main():
         "TASK_CONFIG": os.environ.get('TASK_CONFIG') or 'live_sign,manga_sign,share_video,add_coin',
         "COIN_ADD_NUM": os.environ.get('COIN_ADD_NUM') or '1',
         "COIN_SELECT_LIKE": os.environ.get('COIN_SELECT_LIKE') or '1',
-        "COIN_VIDEO_SOURCE": os.environ.get('COIN_VIDEO_SOURCE') or 'dynamic'
+        "COIN_VIDEO_SOURCE": os.environ.get('COIN_VIDEO_SOURCE') or 'popular'
     }
     # ============================================================
     

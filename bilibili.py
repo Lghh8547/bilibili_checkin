@@ -68,6 +68,23 @@ class BilibiliTask:
             logger.error(f"请求排行榜视频API异常: {e}")
             return []
 
+    def get_popular_videos(self, ps=20):
+        url = f'https://api.bilibili.com/x/web-interface/popular?ps={ps}&pn=1'
+        try:
+            res = requests.get(url, headers=self.headers)
+            res.raise_for_status()
+            data = res.json()
+            logger.debug(f"热门视频API响应: code={data.get('code')}, message={data.get('message')}")
+            if data['code'] == 0:
+                videos = [video['bvid'] for video in data.get('data', {}).get('list', [])]
+                logger.info(f"获取到 {len(videos)} 个热门视频")
+                return videos
+            logger.warning(f"热门视频API返回错误: {data.get('message')}")
+            return []
+        except Exception as e:
+            logger.error(f"请求热门视频API异常: {e}")
+            return []
+
     def check_video_coin_status(self, bvid):
         url = f'https://api.bilibili.com/x/web-interface/archive/coins?bvid={bvid}'
         try:
